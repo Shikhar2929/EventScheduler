@@ -1,0 +1,10 @@
+#!/bin/zsh
+
+if [[ ! -f bin/main ]]; then
+  echo "Binary not found. Run ./build first."
+  exit 1
+fi
+
+echo "Running..."
+./bin/main
+

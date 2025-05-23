@@ -1,0 +1,8 @@
+#!/bin/zsh
+echo "🧹 Cleaning up..."
+
+rm -rf bin
+rm -f *.o *.gch
+
+echo " Cleanup done."
+

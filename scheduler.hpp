@@ -7,6 +7,7 @@
 #include <condition_variable> 
 #include <thread>
 #include <atomic> 
+#include <iostream> 
 
 class Scheduler {
     public: 
@@ -20,6 +21,11 @@ class Scheduler {
 
     private:
         void run();
+        std::queue<Event> event_queue;
+        std::mutex queue_mutex;
+        std::condition_variable cv;
+        std::atomic<bool> running;
+        std::vector<std::thread> workers;
 
 };
 #endif

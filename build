@@ -1,0 +1,11 @@
+#!/bin/zsh
+echo "Building..."
+
+mkdir -p bin
+g++ -std=c++17 -pthread -Wall -Wextra -O2 main.cpp scheduler.cpp -o bin/main
+
+if [[ $? -eq 0 ]]; then
+  echo "Build successful: bin/main"
+else
+  echo "Build failed"
+fi
