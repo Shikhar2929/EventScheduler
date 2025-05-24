@@ -49,6 +49,7 @@
         "stack": "cpp",
         "streambuf": "cpp",
         "variant": "cpp",
-        "algorithm": "cpp"
+        "algorithm": "cpp",
+        "condition_variable": "cpp"
     }
 }

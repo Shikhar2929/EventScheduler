@@ -1,11 +1,22 @@
-#!/bin/zsh
+##!/bin/zsh
 echo "Building..."
 
+TELEMETRY_FLAG=""
+OUTPUT_NAME="main"
+
+# Check for -t flag
+if [[ "$1" == "-t" ]]; then
+  TELEMETRY_FLAG="-DTELEMETRY_ENABLED"
+  OUTPUT_NAME="main_telemetry"
+  echo "Telemetry enabled"
+fi
+
 mkdir -p bin
-g++ -std=c++17 -pthread -Wall -Wextra -O2 main.cpp scheduler.cpp -o bin/main
+
+g++ -std=c++17 -pthread -Wall -Wextra -O2 $TELEMETRY_FLAG main.cpp scheduler.cpp -o bin/$OUTPUT_NAME
 
 if [[ $? -eq 0 ]]; then
-  echo "Build successful: bin/main"
+  echo "Build successful: bin/$OUTPUT_NAME"
 else
   echo "Build failed"
 fi

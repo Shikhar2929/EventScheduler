@@ -16,11 +16,10 @@ class Scheduler {
         void scheduleEvent(const Event& event);
         void start();
         void stop();
-        void startTelemetry();
-
 
     private:
         void run();
+        void executeTask(Event& task);
         std::queue<Event> event_queue;
         std::mutex queue_mutex;
         std::condition_variable cv;

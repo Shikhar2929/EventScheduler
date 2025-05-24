@@ -1,4 +1,5 @@
 #include "scheduler.hpp"
+#include "scopeTimer.hpp"
 #include <iostream> 
 
 Scheduler::Scheduler() : running(false) {}
@@ -13,8 +14,9 @@ void Scheduler::start() {
     for (size_t i = 0; i < thread_count; ++i) {
         workers.emplace_back(&Scheduler::run, this);
     }
-
+    #ifdef TELEMETRY_ENABLED
     std::cout << "Scheduler started with " << thread_count << " threads.\n";
+    #endif
 }
 
 // Stop the scheduler and join all threads
@@ -31,7 +33,9 @@ void Scheduler::stop() {
     }
 
     workers.clear();
+    #ifdef TELEMETRY_ENABLED
     std::cout << "Scheduler stopped.\n";
+    #endif
 }
 
 void Scheduler::scheduleEvent(const Event& event) {
@@ -58,9 +62,13 @@ void Scheduler::run() {
             task = std::move(event_queue.front());
             event_queue.pop();
         }
-
-        if (task.getId() != 0) {
-            task.execute();
-        }
+        executeTask(task);
     }
+}
+void Scheduler::executeTask(Event& task) {
+    if (task.getId() == 0) return;
+    #ifdef TELEMETRY_ENABLED
+        ScopeTimer t("Event " + std::to_string(task.getId()));
+    #endif
+    task.execute();
 }
