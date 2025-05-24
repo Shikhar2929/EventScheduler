@@ -1,6 +1,6 @@
-#include "scheduler.hpp"
-#include "event.hpp"
-#include "scopeTimer.hpp"
+#include "../include/scheduler.hpp"
+#include "../include/event.hpp"
+#include "../include/scopeTimer.hpp"
 #include <iostream>
 #include <chrono>
 #include <atomic>

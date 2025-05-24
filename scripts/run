@@ -1,0 +1,22 @@
+#!/bin/zsh
+#!/bin/zsh
+
+OUTPUT_NAME="main"
+
+# Check for telemetry flag
+for arg in "$@"; do
+  if [[ "$arg" == "-t" ]]; then
+    OUTPUT_NAME="main_telemetry"
+    break
+  fi
+done
+
+if [[ ! -f bin/$OUTPUT_NAME ]]; then
+  echo "Binary not found. Run ./build first."
+  exit 1
+fi
+
+echo "Running..."
+./bin/$OUTPUT_NAME
+
+

@@ -19,7 +19,11 @@ done
 
 mkdir -p bin
 
-g++ -std=c++17 -pthread -Wall -Wextra -O2 $TELEMETRY_FLAG $TIMER_UNIT_FLAG main.cpp scheduler.cpp -o bin/$OUTPUT_NAME
+g++ -std=c++17 -pthread -Wall -Wextra -O2 \
+  -I../include \
+  src/main.cpp src/scheduler.cpp \
+  -o bin/$OUTPUT_NAME \
+  $TELEMETRY_FLAG $TIMER_UNIT_FLAG
 
 if [[ $? -eq 0 ]]; then
   echo "Build successful: bin/$OUTPUT_NAME"
