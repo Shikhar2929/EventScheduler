@@ -1,19 +1,25 @@
-##!/bin/zsh
+#!/bin/zsh
 echo "Building..."
 
 TELEMETRY_FLAG=""
+TIMER_UNIT_FLAG=""
 OUTPUT_NAME="main"
 
-# Check for -t flag
-if [[ "$1" == "-t" ]]; then
-  TELEMETRY_FLAG="-DTELEMETRY_ENABLED"
-  OUTPUT_NAME="main_telemetry"
-  echo "Telemetry enabled"
-fi
+# Parse flags
+for arg in "$@"; do
+  if [[ "$arg" == "-t" ]]; then
+    TELEMETRY_FLAG="-DTELEMETRY_ENABLED"
+    OUTPUT_NAME="main_telemetry"
+    echo "Telemetry enabled"
+  elif [[ "$arg" == "-s" ]]; then
+    TIMER_UNIT_FLAG="-DSECONDS"
+    echo "Timer output: seconds"
+  fi
+done
 
 mkdir -p bin
 
-g++ -std=c++17 -pthread -Wall -Wextra -O2 $TELEMETRY_FLAG main.cpp scheduler.cpp -o bin/$OUTPUT_NAME
+g++ -std=c++17 -pthread -Wall -Wextra -O2 $TELEMETRY_FLAG $TIMER_UNIT_FLAG main.cpp scheduler.cpp -o bin/$OUTPUT_NAME
 
 if [[ $? -eq 0 ]]; then
   echo "Build successful: bin/$OUTPUT_NAME"

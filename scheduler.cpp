@@ -48,6 +48,9 @@ void Scheduler::scheduleEvent(const Event& event) {
 }
 
 void Scheduler::run() {
+    #ifdef TELEMETRY_ENABLED
+    std::cout << "Worker Started With " << std::this_thread::get_id() << std::endl;
+    #endif
     while (running) {
         Event task(0, nullptr);
 

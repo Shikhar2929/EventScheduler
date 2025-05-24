@@ -12,8 +12,13 @@ public:
 
     ~ScopeTimer() {
         auto end = std::chrono::steady_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-        std::cout << "[Profiler] " << label << ": " << duration << " µs\n";
+        #ifdef SECONDS
+            auto duration = std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+            std::cout << "[Profiler] " << label << ": " << duration << " s\n";
+        #else
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+            std::cout << "[Profiler] " << label << ": " << duration << " µs\n";
+        #endif
     }
 
 private:
