@@ -1,2 +1,2 @@
 #!/bin/zsh
-./scripts/build "$@" && ./scripts/run "$@"
+./scripts/clean && ./scripts/build "$@" && ./scripts/run "$@"
