@@ -2,6 +2,7 @@
 #define SCHEDULER_HPP
 
 #include "event.hpp"
+#include "lock_free_queue.hpp"
 #include <queue>
 #include <mutex>
 #include <condition_variable> 

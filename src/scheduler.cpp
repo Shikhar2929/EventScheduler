@@ -1,5 +1,5 @@
 #include "../include/scheduler.hpp"
-#include "../include/scopeTimer.hpp"
+#include "../include/scope_timer.hpp"
 #include <iostream> 
 
 Scheduler::Scheduler() : running(false) {}
