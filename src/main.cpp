@@ -14,8 +14,6 @@ std::vector<int> array(DATA_SIZE, 42);
 std::atomic<size_t> globalSum = 0;
 const size_t MOD  = 997;
 void basicScheduler() {
-// Shared memory block to simulate cache-thrashing access
-    // Atomic counter to track completions
     std::atomic<size_t> completed = 0;
     Scheduler scheduler;
     scheduler.start();
@@ -67,15 +65,13 @@ void schedulerHash() {
             scheduler.scheduleEvent(Event(i + 1, [i, &completed]() {
                 size_t localSum = 0;
                 size_t base = i * CHUNK_SIZE;
-
-                // Simulate a heavy CPU workload: non-trivial math
+                //Random hashind done
                 for (size_t j = 0; j < CHUNK_SIZE; ++j) {
                     int val = array[base + j];
                     localSum += val * val + 17;
                     localSum ^= (localSum << 3);
                 }
 
-                // No global atomic used — each task is independent
                 globalSum.fetch_add(localSum % MOD, std::memory_order_relaxed);
                 completed.fetch_add(1, std::memory_order_relaxed);  
             }));
@@ -103,11 +99,7 @@ void benchmarkHash() {
             localSum += val * val + 17;
             localSum ^= (localSum << 3);
         }
-        localSum %= MOD;
-        uint64_t prev = globalSum.load(std::memory_order_relaxed);
-        uint64_t result = globalSum.fetch_add(localSum, std::memory_order_relaxed);
-        if (result + localSum < result)
-            overflow = true;
+        uint64_t result = globalSum.fetch_add(localSum % MOD, std::memory_order_relaxed);
     }
     std::cout << globalSum << std::endl;
     overflow ? std::cout << "Overflow Occurred!\n" : std::cout<<"No Overflow Occurred!\n";

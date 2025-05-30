@@ -27,8 +27,8 @@ class SPMC : public LockFreeQueue<T> {
     private: 
         std::vector<std::optional<T>> buffer;
         const size_t capacity;
-        std::atomic<size_t> head;
-        std::atomic<size_t> tail;
+        alignas(64) std::atomic<size_t> head;
+        alignas(64) std::atomic<size_t> tail;
 };
 #include "lock_free_queue.tpp"
 

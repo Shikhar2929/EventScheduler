@@ -34,7 +34,7 @@ std::optional<T> SPMC<T>::pop() {
         }
 
         next_head = (head_val + 1) % capacity;
-    } while (!head.compare_exchange_weak(head_val, next_head, std::memory_order_acquire));
+    } while (!head.compare_exchange_weak(head_val, next_head, std::memory_order_acq_rel));
 
     std::optional<T>& opt = buffer[head_val];
     std::optional<T> item = std::move(opt);
