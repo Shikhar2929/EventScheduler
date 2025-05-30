@@ -41,31 +41,15 @@ void Scheduler::scheduleEvent(const Event& event) {
 }
 
 void Scheduler::run() {
-    #ifdef TELEMETRY_ENABLED
-    std::cout << "Worker Started With " << std::this_thread::get_id() << std::endl;
-    #endif
+    //#ifdef TELEMETRY_ENABLED
+    //std::cout << "Worker Started With " << std::this_thread::get_id() << std::endl;
+    //#endif
     while (running) {
         auto task_opt = event_queue.pop();
         if (task_opt.has_value())
             executeTask(task_opt.value());  
         else 
             std::this_thread::yield();
-        /*
-        Event task(0, nullptr);
-
-        {
-            std::unique_lock<std::mutex> lock(queue_mutex);
-            cv.wait(lock, [this] {
-                return !event_queue.empty() || !running;
-            });
-
-            if (!running && event_queue.empty()) return;
-
-            task = std::move(event_queue.front());
-            event_queue.pop();
-        }
-        executeTask(task);
-        */
     }
 }
 void Scheduler::executeTask(Event& task) {

@@ -23,15 +23,21 @@ void SPMC<T>::push(const T& element) {
 
 template<typename T>
 std::optional<T> SPMC<T>::pop() {
-    size_t head_val = head.load(std::memory_order_relaxed);
+    size_t head_val;
+    size_t next_head;
+    do {
+        head_val = head.load(std::memory_order_relaxed);
+        size_t tail_val = tail.load(std::memory_order_acquire);
 
-    if (head_val == tail.load(std::memory_order_acquire)) {
-        return std::nullopt;  // Queue is empty
-    }
+        if (head_val == tail_val) {
+            return std::nullopt;
+        }
+
+        next_head = (head_val + 1) % capacity;
+    } while (!head.compare_exchange_weak(head_val, next_head, std::memory_order_acquire));
+
     std::optional<T>& opt = buffer[head_val];
     std::optional<T> item = std::move(opt);
     opt.reset();
-    
-    head.store((head_val + 1) % capacity, std::memory_order_release);
     return item;
 }

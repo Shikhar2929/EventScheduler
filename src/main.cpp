@@ -11,11 +11,10 @@
 constexpr size_t NUM_EVENTS = 1'000'000;
 constexpr size_t DATA_SIZE = 1024 * 1024; // 1M integers
 std::vector<int> array(DATA_SIZE, 42);
-std::atomic<size_t> global_sum = 0;
-
-int main() {
-    // Shared memory block to simulate cache-thrashing access
-
+std::atomic<size_t> globalSum = 0;
+const size_t MOD  = 997;
+void basicScheduler() {
+// Shared memory block to simulate cache-thrashing access
     // Atomic counter to track completions
     std::atomic<size_t> completed = 0;
     Scheduler scheduler;
@@ -27,7 +26,7 @@ int main() {
             scheduler.scheduleEvent(Event(i, [&completed, i]() {
                 size_t local = 0;
                 local += array[(i * 75431) % DATA_SIZE];
-                global_sum.fetch_add(local, std::memory_order_relaxed);
+                globalSum.fetch_add(local, std::memory_order_relaxed);
                 completed.fetch_add(1, std::memory_order_relaxed);
             }));
         }
@@ -38,7 +37,84 @@ int main() {
         }
     }
     scheduler.stop();
-    //std::cout <<"Global Sum: " << global_sum << std::endl;
+}
 
+void basicBenchmark() {
+    std::atomic<size_t> completed = 0;
+    {
+        ScopeTimer t("Total Task Scheduling + Execution, Benchmark Version");
+        for (size_t i = 1; i <= NUM_EVENTS; ++i) {
+            size_t local = 0;
+            local += array[(i * 75431) % DATA_SIZE];
+            globalSum.fetch_add(local, std::memory_order_relaxed);
+            completed.fetch_add(1, std::memory_order_relaxed);
+        }
+    }
+}
+
+void schedulerHash() {
+    std::atomic<size_t> completed = 0;
+    globalSum.store(0);
+    Scheduler scheduler;
+    scheduler.start();
+    {
+        ScopeTimer t("Total Task Scheduling + Execution");
+
+        constexpr size_t CHUNK_SIZE = 10000;
+        constexpr size_t NUM_CHUNKS = DATA_SIZE / CHUNK_SIZE;
+
+        for (size_t i = 0; i < NUM_CHUNKS; ++i) {
+            scheduler.scheduleEvent(Event(i + 1, [i, &completed]() {
+                size_t localSum = 0;
+                size_t base = i * CHUNK_SIZE;
+
+                // Simulate a heavy CPU workload: non-trivial math
+                for (size_t j = 0; j < CHUNK_SIZE; ++j) {
+                    int val = array[base + j];
+                    localSum += val * val + 17;
+                    localSum ^= (localSum << 3);
+                }
+
+                // No global atomic used — each task is independent
+                globalSum.fetch_add(localSum % MOD, std::memory_order_relaxed);
+                completed.fetch_add(1, std::memory_order_relaxed);  
+            }));
+        }
+
+        while (completed.load(std::memory_order_relaxed) < NUM_CHUNKS) {
+            std::this_thread::yield();
+        }
+        std::cout << "Global Sum: " << globalSum << std::endl;
+    }
+    scheduler.stop();
+}
+void benchmarkHash() {
+    ScopeTimer t("Total Task Scheduling + Execution, Benchmark Version");
+    globalSum.store(0);
+    constexpr size_t CHUNK_SIZE = 10000;
+    constexpr size_t NUM_CHUNKS = DATA_SIZE / CHUNK_SIZE;
+    bool overflow = false;
+    for (size_t i = 0; i < NUM_CHUNKS; ++i) {
+        size_t localSum = 0;
+        size_t base = i * CHUNK_SIZE;
+
+        for (size_t j = 0; j < CHUNK_SIZE; ++j) {
+            int val = array[base + j];
+            localSum += val * val + 17;
+            localSum ^= (localSum << 3);
+        }
+        localSum %= MOD;
+        uint64_t prev = globalSum.load(std::memory_order_relaxed);
+        uint64_t result = globalSum.fetch_add(localSum, std::memory_order_relaxed);
+        if (result + localSum < result)
+            overflow = true;
+    }
+    std::cout << globalSum << std::endl;
+    overflow ? std::cout << "Overflow Occurred!\n" : std::cout<<"No Overflow Occurred!\n";
+}
+
+int main() {
+    schedulerHash();    
+    //benchmarkHash();
     return 0;
 }
