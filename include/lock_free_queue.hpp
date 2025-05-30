@@ -25,9 +25,11 @@ class SPMC : public LockFreeQueue<T> {
         void push(const T& element) override;
         std::optional<T> pop() override;
     private: 
-        std::vector<T> buffer;
+        std::vector<std::optional<T>> buffer;
         const size_t capacity;
         std::atomic<size_t> head;
         std::atomic<size_t> tail;
 };
+#include "lock_free_queue.tpp"
+
 #endif

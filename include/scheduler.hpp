@@ -21,10 +21,9 @@ class Scheduler {
     private:
         void run();
         void executeTask(Event& task);
-        std::queue<Event> event_queue;
-        std::mutex queue_mutex;
-        std::condition_variable cv;
         std::atomic<bool> running;
+        SPMC<Event> event_queue;
+        //std::condition_variable cv;
         std::vector<std::thread> workers;
 
 };

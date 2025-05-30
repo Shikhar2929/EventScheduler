@@ -2,7 +2,7 @@
 #include "../include/scope_timer.hpp"
 #include <iostream> 
 
-Scheduler::Scheduler() : running(false) {}
+Scheduler::Scheduler() : running(false), event_queue(1024 * 1024) {}
 Scheduler::~Scheduler() {
     stop();
 }
@@ -24,8 +24,6 @@ void Scheduler::stop() {
     if(!running) 
         return;
     running = false;
-    cv.notify_all();  // Wake up all workers to exit
-
     for (std::thread& t : workers) {
         if (t.joinable()) {
             t.join();
@@ -39,12 +37,7 @@ void Scheduler::stop() {
 }
 
 void Scheduler::scheduleEvent(const Event& event) {
-    //Create a new scope to acquire the lock
-    {
-        std::lock_guard<std::mutex> lock(queue_mutex);
-        event_queue.push(event);    
-    }
-    cv.notify_all();
+    event_queue.push(event);
 }
 
 void Scheduler::run() {
@@ -52,6 +45,12 @@ void Scheduler::run() {
     std::cout << "Worker Started With " << std::this_thread::get_id() << std::endl;
     #endif
     while (running) {
+        auto task_opt = event_queue.pop();
+        if (task_opt.has_value())
+            executeTask(task_opt.value());  
+        else 
+            std::this_thread::yield();
+        /*
         Event task(0, nullptr);
 
         {
@@ -66,6 +65,7 @@ void Scheduler::run() {
             event_queue.pop();
         }
         executeTask(task);
+        */
     }
 }
 void Scheduler::executeTask(Event& task) {

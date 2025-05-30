@@ -11,9 +11,9 @@ void SPMC<T>::push(const T& element) {
 
     if (next_tail == head.load(std::memory_order_acquire)) {
         // Queue is full — drop the element
-        #ifdef TELEMETRY_ENABLED
+        //#ifdef TELEMETRY_ENABLED
         std::cout << "Queue is full & item is dropped" << std::endl;
-        #endif
+        //#endif
         return;
     }
 
@@ -28,8 +28,10 @@ std::optional<T> SPMC<T>::pop() {
     if (head_val == tail.load(std::memory_order_acquire)) {
         return std::nullopt;  // Queue is empty
     }
-
-    T item = buffer[head_val];
+    std::optional<T>& opt = buffer[head_val];
+    std::optional<T> item = std::move(opt);
+    opt.reset();
+    
     head.store((head_val + 1) % capacity, std::memory_order_release);
     return item;
 }
