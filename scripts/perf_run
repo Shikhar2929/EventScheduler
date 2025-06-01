@@ -1,0 +1,4 @@
+#!/bin/bash
+
+CXXFLAGS="-g -O2" ./scripts/build && sudo perf record -F 99 ./bin/main
+# For linux only
