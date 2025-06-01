@@ -22,7 +22,7 @@ class Scheduler {
         void run();
         void executeTask(Event& task);
         std::atomic<bool> running;
-        SPMC<Event> event_queue;
+        SeqRing<Event> event_queue;
         //std::condition_variable cv;
         std::vector<std::thread> workers;
 

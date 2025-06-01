@@ -50,13 +50,13 @@ void basicBenchmark() {
     }
 }
 
-void schedulerHash() {
+void schedulerHash(std::vector<long long>& results) {
     std::atomic<size_t> completed = 0;
     globalSum.store(0);
     Scheduler scheduler;
     scheduler.start();
     {
-        ScopeTimer t("Total Task Scheduling + Execution");
+        ScopeTimer t("Total Task Scheduling + Execution", &results);
 
         constexpr size_t CHUNK_SIZE = 10000;
         constexpr size_t NUM_CHUNKS = DATA_SIZE / CHUNK_SIZE;
@@ -84,8 +84,8 @@ void schedulerHash() {
     }
     scheduler.stop();
 }
-void benchmarkHash() {
-    ScopeTimer t("Total Task Scheduling + Execution, Benchmark Version");
+void benchmarkHash(std::vector<long long>& results) {
+    ScopeTimer t("Total Task Scheduling + Execution, Benchmark Version", &results);
     globalSum.store(0);
     constexpr size_t CHUNK_SIZE = 10000;
     constexpr size_t NUM_CHUNKS = DATA_SIZE / CHUNK_SIZE;
@@ -102,11 +102,86 @@ void benchmarkHash() {
         uint64_t result = globalSum.fetch_add(localSum % MOD, std::memory_order_relaxed);
     }
     std::cout << globalSum << std::endl;
-    overflow ? std::cout << "Overflow Occurred!\n" : std::cout<<"No Overflow Occurred!\n";
+    //overflow ? std::cout << "Overflow Occurred!\n" : std::cout<<"No Overflow Occurred!\n";
 }
 
+/*
+void benchmark_std_function(std::vector<long long>& results) {
+    ScopeTimer t("std::function Event Benchmark", &results);
+
+    for (size_t i = 0; i < NUM_EVENTS; ++i) {
+        std::function<void()> fn = [] {};
+        Event e1(i, fn);  // This version uses std::function-based Event
+        e1.execute();
+    }
+}*/
+
+
+void benchmark_custom_event(std::vector<long long>& results) {
+    ScopeTimer t("Inline Custom Event Benchmark", &results);
+
+    for (size_t i = 0; i < NUM_EVENTS; ++i) {
+        Event e2(i, [] {});  // This version uses your inline storage
+        e2.execute();
+    }
+}
+
+void summarize(const std::string& label, const std::vector<long long>& data) {
+    if (data.empty()) return;
+    long long total = std::accumulate(data.begin(), data.end(), 0LL);
+    long long min_v = *std::min_element(data.begin(), data.end());
+    long long max_v = *std::max_element(data.begin(), data.end());
+    double avg = static_cast<double>(total) / data.size();
+
+    std::cout << "[Stats] " << label << "\n"
+              << "  Avg: " << avg << " µs\n"
+              << "  Min: " << min_v << " µs\n"
+              << "  Max: " << max_v << " µs\n";
+}
+void baselineBenchmark(std::vector<long long>& results) {
+    {
+        ScopeTimer timer("Task Alone Benchmark", &results);
+        for (size_t i = 1; i <= NUM_EVENTS; ++i) {
+            volatile size_t x = 0;
+            for (int j = 0; j < 100; ++j) x += j * j;
+        }
+    }
+}
+void benchmarkEventScheduler(std::vector<long long>& results) {
+    std::atomic<size_t> completed = 0;
+    Scheduler scheduler;
+    scheduler.start();
+
+    {
+        ScopeTimer timer("Event Scheduler Benchmark", &results);
+
+        for (size_t i = 1; i <= NUM_EVENTS; ++i) {
+            scheduler.scheduleEvent(Event(i, [&completed]() {
+                volatile size_t x = 0;
+                for (int j = 0; j < 100; ++j) x += j * j;
+                completed.fetch_add(1, std::memory_order_relaxed);
+            }));
+        }
+
+        while (completed.load(std::memory_order_relaxed) < NUM_EVENTS) {
+            std::this_thread::yield();
+        }
+    }
+
+    scheduler.stop();
+}
+
+
 int main() {
-    schedulerHash();    
+    //schedulerHash();    
     //benchmarkHash();
+    
+    std::vector<long long> trials;
+    
+    for (int i = 0; i < 40; ++i) {
+        schedulerHash(trials);        
+    }
+    summarize("custom inline Event", trials);
+    
     return 0;
 }
