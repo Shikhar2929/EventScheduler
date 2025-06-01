@@ -101,9 +101,6 @@ SeqRing<T>::~SeqRing()
 }
 
 template<typename T>
-void SeqRing<T>::push(const T& elem)   { produce(elem); }
-
-template<typename T>
 void SeqRing<T>::push(T&& elem)        { produce(std::move(elem)); }
 
 template<typename T>

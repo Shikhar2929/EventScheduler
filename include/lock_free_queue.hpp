@@ -8,7 +8,6 @@
 template<typename T> 
 class LockFreeQueue {
     public:
-        virtual void push(const T& element) = 0;
         virtual void push(T&& element) = 0;
         virtual std::optional<T> pop() = 0;
         //const, not modifying the object
@@ -23,7 +22,7 @@ template<typename T>
 class SPMC : public LockFreeQueue<T> {    
     public: 
         explicit SPMC(size_t capacity);
-        void push(const T& element) override;
+        void push(const T& element);
         void push(T&& element) override;
         std::optional<T> pop() override;
     private: 
@@ -40,8 +39,6 @@ class SeqRing final : public LockFreeQueue<T>
 {
 public:
     explicit SeqRing(std::size_t capacity);
-
-    void push(const T&  element) override; // copy
     void push(T&& element) override; // move
     std::optional<T> pop() override;
 

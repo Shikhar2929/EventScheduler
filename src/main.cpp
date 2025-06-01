@@ -139,15 +139,19 @@ void summarize(const std::string& label, const std::vector<long long>& data) {
               << "  Max: " << max_v << " µs\n";
 }
 void baselineBenchmark(std::vector<long long>& results) {
+    globalSum.store(0);
     {
         ScopeTimer timer("Task Alone Benchmark", &results);
         for (size_t i = 1; i <= NUM_EVENTS; ++i) {
             volatile size_t x = 0;
             for (int j = 0; j < 100; ++j) x += j * j;
+            globalSum.fetch_add(x);
         }
     }
+    std::cout << "Global Sum: " << globalSum << std::endl;
 }
 void benchmarkEventScheduler(std::vector<long long>& results) {
+    globalSum.store(0);
     std::atomic<size_t> completed = 0;
     Scheduler scheduler;
     scheduler.start();
@@ -159,6 +163,7 @@ void benchmarkEventScheduler(std::vector<long long>& results) {
             scheduler.scheduleEvent(Event(i, [&completed]() {
                 volatile size_t x = 0;
                 for (int j = 0; j < 100; ++j) x += j * j;
+                globalSum.fetch_add(x);
                 completed.fetch_add(1, std::memory_order_relaxed);
             }));
         }
@@ -167,7 +172,7 @@ void benchmarkEventScheduler(std::vector<long long>& results) {
             std::this_thread::yield();
         }
     }
-
+    std::cout << "Global Sum: " << globalSum << std::endl;
     scheduler.stop();
 }
 
@@ -181,7 +186,7 @@ int main() {
     for (int i = 0; i < 40; ++i) {
         schedulerHash(trials);        
     }
-    summarize("custom inline Event", trials);
+    summarize("Benchmark Event Scheduler", trials);
     
     return 0;
 }
