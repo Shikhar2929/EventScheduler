@@ -1,5 +1,4 @@
-#!/bin/zsh
-#!/bin/zsh
+#!/bin/bash
 
 OUTPUT_NAME="main"
 
@@ -11,7 +10,7 @@ for arg in "$@"; do
   fi
 done
 
-if [[ ! -f bin/$OUTPUT_NAME ]]; then
+if [[ ! -f  bin/$OUTPUT_NAME ]]; then
   echo "Binary not found. Run ./build first."
   exit 1
 fi

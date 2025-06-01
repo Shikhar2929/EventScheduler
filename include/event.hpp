@@ -5,6 +5,7 @@
 #include <functional>
 #include <cstdint>
 #include <string>
+#include <cstring>
 
 class OldEvent {
 public:
