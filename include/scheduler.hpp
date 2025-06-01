@@ -14,16 +14,16 @@ class Scheduler {
     public: 
         Scheduler();
         ~Scheduler();
-        void scheduleEvent(const Event& event);
+        void scheduleEvent(Event event);
         void start();
         void stop();
 
     private:
         void run();
         void executeTask(Event& task);
+
         std::atomic<bool> running;
         SeqRing<Event> event_queue;
-        //std::condition_variable cv;
         std::vector<std::thread> workers;
 
 };

@@ -36,8 +36,8 @@ void Scheduler::stop() {
     #endif
 }
 
-void Scheduler::scheduleEvent(const Event& event) {
-    event_queue.push(event);
+void Scheduler::scheduleEvent(Event event) {
+    event_queue.push(std::move(event));
 }
 
 void Scheduler::run() {
