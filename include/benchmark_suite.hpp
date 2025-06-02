@@ -11,6 +11,7 @@
 #include <vector>
 #include <numeric>
 #include <algorithm>
+#include <random>
 
 class BenchmarkSuite {
 public:
@@ -154,6 +155,100 @@ public:
         }
         std::cout << "Global Sum: " << globalSum << std::endl;
     }
+
+    static void MultiplyMatrices(const std::vector<std::vector<int>>& A,
+        const std::vector<std::vector<int>>& B,
+        std::vector<std::vector<int>>& C) {
+        size_t N = A.size();
+        for (size_t i = 0; i < N; ++i) {
+            for (size_t j = 0; j < N; ++j) {
+                int sum = 0;
+                for (size_t k = 0; k < N; ++k) {
+                    sum += A[i][k] * B[k][j];
+                    C[i][j] = sum;
+                }
+            }
+        }
+    }
+
+    static void MatrixMultiplicationBenchmark(const int N, std::vector<long long>& results) {
+        std::vector<std::vector<int>> A(N, std::vector<int>(N));
+        std::vector<std::vector<int>> B(N, std::vector<int>(N));
+        std::vector<std::vector<int>> C(N, std::vector<int>(N, 0));
+
+        std::mt19937 rng(42);
+        std::uniform_int_distribution<int> dist(1, 100);
+
+        for (size_t i = 0; i < N; ++i) {
+            for (size_t j = 0; j < N; ++j) {
+            A[i][j] = dist(rng);
+            B[i][j] = dist(rng);
+            }
+        }
+
+        {
+            ScopeTimer t("Matrix Multiplication Benchmark", &results);
+            MultiplyMatrices(A, B, C);
+        }
+    }   
+    
+    static void MatrixMultiplicationSchedulerBenchmark(const int N, std::vector<long long>& results) {
+        std::vector<std::vector<int>> A(N, std::vector<int>(N));
+        std::vector<std::vector<int>> B(N, std::vector<int>(N));
+        std::vector<std::vector<int>> C(N, std::vector<int>(N, 0));
+    
+        std::mt19937 rng(42);
+        std::uniform_int_distribution<int> dist(1, 100);
+        InitScheduler();
+    
+        {
+            ScopeTimer t("Matrix Multiplication Scheduler Benchmark", &results);
+            for (size_t i = 0; i < N; ++i) {
+                auto& row = C[i];
+                scheduler.scheduleEvent(Event(i, [i, &A, &B, &C]() {
+                    size_t N = A.size();
+                    auto &row = C[i];
+                    for (size_t j = 0; j < N; ++j) {
+                        int sum = 0;
+                        for (size_t k = 0; k < N; ++k) {
+                            sum += A[i][k] * B[k][j];
+                        }
+                        row[j] = sum;
+                    }
+                }));
+            }
+            scheduler.markDone();
+            scheduler.waitUntilFinished();
+        }
+        /*
+        std::vector<std::vector<int>> C_ref(N, std::vector<int>(N, 0));
+        MultiplyMatrices(A, B, C_ref);
+    
+        bool valid = true;
+        for (size_t i = 0; i < N && valid; ++i) {
+            for (size_t j = 0; j < N; ++j) {
+                if (C[i][j] != C_ref[i][j]) {
+                    std::cerr << "Verification failed at (" << i << ", " << j << "): "
+                              << C[i][j] << " != " << C_ref[i][j] << std::endl;
+                    valid = false;
+                    break;
+                }
+            }
+        }
+        if (valid) {
+            std::cout << "Matrix verification passed." << std::endl;
+        }
+    
+        int checksum = 0;
+        for (size_t i = 0; i < N; ++i)
+            for (size_t j = 0; j < N; ++j)
+                checksum += C[i][j];
+    
+        std::cout << "Matrix Checksum: " << checksum << std::endl;
+        */
+    }    
+
+
 
     static void Summarize(const std::string& label, const std::vector<long long>& data) {
         if (data.empty()) return;

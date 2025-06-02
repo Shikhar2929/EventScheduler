@@ -76,7 +76,6 @@ void Scheduler::waitUntilFinished() {
 }
 
 void Scheduler::executeTask(Event& task) {
-    if (task.getId() == 0) return;
     #ifdef TELEMETRY_ENABLED
         ScopeTimer t("Event " + std::to_string(task.getId()));
     #endif
