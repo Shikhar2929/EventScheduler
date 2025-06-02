@@ -51,14 +51,18 @@ void Scheduler::run() {
     //#ifdef TELEMETRY_ENABLED
     //std::cout << "Worker Started With " << std::this_thread::get_id() << std::endl;
     //#endif
+    constexpr std::size_t BATCH_CAP = 16;
+    std::array<Event, 16> buf;
     while (running) {
-        auto task_opt = event_queue.pop();
-        if (task_opt.has_value()) {
-            executeTask(task_opt.value());  
-            tasksCompleted.fetch_add(1, std::memory_order_relaxed);
-        }
-        else 
+        std::size_t got = event_queue.pop_batch<BATCH_CAP>(buf.begin());
+        if (got == 0) {
             std::this_thread::yield();
+            continue;
+        }
+        for (std::size_t i = 0; i < got; ++i) {
+            executeTask(buf[i]);
+        }
+        tasksCompleted.fetch_add(got, std::memory_order_relaxed);
     }
 }
 

@@ -29,7 +29,8 @@ private:
 
 class Event {
     public:
-    
+        Event() noexcept = default;
+
         template<typename Fn>   
         Event(uint64_t id, Fn &&fn, const std::string& name = "")
             : event_id(id), event_name(name) {

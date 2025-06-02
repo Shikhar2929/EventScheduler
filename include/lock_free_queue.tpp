@@ -33,8 +33,7 @@ void SPMC<T>::push(const T& element) {
 
 // R-value implementation support
 template<typename T>
-void SPMC<T>::push(T&& element)
-{
+void SPMC<T>::push(T&& element) {
     size_t tail_val = tail.load(std::memory_order_relaxed);
     size_t next_tail = (tail_val + 1) % capacity;
 
@@ -71,8 +70,7 @@ std::optional<T> SPMC<T>::pop() {
 // ------- SEQ RING IMPLEMENTATION --------
 
 template<typename T>
-inline std::size_t SeqRing<T>::nextPow2(std::size_t n)
-{
+inline std::size_t SeqRing<T>::nextPow2(std::size_t n) {
     assert(n >= 2);
     n--; n |= n >> 1;  n |= n >> 2;  n |= n >> 4;
     n |= n >> 8;  n |= n >> 16; n |= n >> 32;
@@ -83,15 +81,13 @@ template<typename T>
 SeqRing<T>::SeqRing(std::size_t cap)
     : capacity_(nextPow2(cap)),
       mask_    (capacity_ - 1),
-      buffer_  (capacity_)
-{
+      buffer_  (capacity_) {
     for (std::size_t i = 0; i < capacity_; ++i)
         buffer_[i].seq.store(i, std::memory_order_relaxed);
 }
 
 template<typename T>
-SeqRing<T>::~SeqRing()
-{
+SeqRing<T>::~SeqRing(){
     uint64_t h = head_.load(std::memory_order_relaxed);
     uint64_t t = tail_.load(std::memory_order_relaxed);
     while (h != t) {
@@ -101,12 +97,13 @@ SeqRing<T>::~SeqRing()
 }
 
 template<typename T>
-void SeqRing<T>::push(T&& elem)        { produce(std::move(elem)); }
+void SeqRing<T>::push(T&& elem) { 
+    produce(std::move(elem)); 
+}
 
 template<typename T>
 template<typename U>
-inline void SeqRing<T>::produce(U&& value)
-{
+inline void SeqRing<T>::produce(U&& value) {
     while (true) {
         uint64_t tail = tail_.load(std::memory_order_relaxed);
         Cell&    cell = buffer_[tail & mask_];
@@ -132,8 +129,7 @@ inline void SeqRing<T>::produce(U&& value)
 }
 
 template<typename T>
-inline std::optional<T> SeqRing<T>::consume()
-{
+inline std::optional<T> SeqRing<T>::consume() {
     while (true) {
         uint64_t head = head_.load(std::memory_order_relaxed);
         Cell&    cell = buffer_[head & mask_];
@@ -167,7 +163,47 @@ inline std::optional<T> SeqRing<T>::consume()
 }
 
 template<typename T>
-inline std::optional<T> SeqRing<T>::pop()
-{
+inline std::optional<T> SeqRing<T>::pop() {
     return consume();
+}
+template<typename T>
+template<std::size_t Capacity, typename OutputIt>
+std::size_t SeqRing<T>::pop_batch(OutputIt out)
+{
+    static_assert(Capacity >= 16,
+                  "buffer must hold at least the max automatic batch");
+
+    //head, tail, for getting the available space in the queue
+    uint64_t head = head_.load(std::memory_order_relaxed);
+    uint64_t tail = tail_.load(std::memory_order_acquire);
+    uint64_t avail = tail - head;
+    if (avail == 0) return 0;                       // empty
+
+    // simple conditionals for picking the space in the queue
+    std::size_t k;
+    if      (avail <= 4)  k = 1;
+    else if (avail <= 16) k = 4;
+    else if (avail <= 64) k = 8;
+    else                  k = 16;
+
+    /* (Capacity check is compile‑time via static_assert) */
+    if (!head_.compare_exchange_strong(
+            head, head + k,
+            std::memory_order_acq_rel,
+            std::memory_order_relaxed))
+        return 0;                                   // lost race → retry later
+
+    /* ---------- 3. move k items locally ---------- */
+    for (std::size_t i = 0; i < k; ++i) {
+        Cell& cell = buffer_[(head + i) & mask_];
+        while (cell.seq.load(std::memory_order_acquire) != head + i + 1)
+            std::this_thread::yield();
+
+        T* ptr = std::launder(reinterpret_cast<T*>(&cell.storage));
+        *out++ = std::move(*ptr);
+        ptr->~T();
+        cell.seq.store(head + i + capacity_,
+                       std::memory_order_release);
+    }
+    return k;
 }

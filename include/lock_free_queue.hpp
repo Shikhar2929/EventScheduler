@@ -42,6 +42,9 @@ public:
     void push(T&& element) override; // move
     std::optional<T> pop() override;
 
+    template<std::size_t Capacity, typename OutputIt>
+    std::size_t pop_batch(OutputIt out);
+
     ~SeqRing() override;
 
 private:
