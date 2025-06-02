@@ -166,10 +166,19 @@ template<typename T>
 inline std::optional<T> SeqRing<T>::pop() {
     return consume();
 }
+
+template<typename T>
+void SeqRing<T>::setWorkerCount(unsigned workers) {
+    divshift = nextPow2(workers);
+    divshift = divshift < 1 ? 1 : divshift;
+    divshift = divshift > 16 ? 16 : divshift;
+}
+
+
+
 template<typename T>
 template<std::size_t Capacity, typename OutputIt>
-std::size_t SeqRing<T>::pop_batch(OutputIt out)
-{
+std::size_t SeqRing<T>::pop_batch(OutputIt out) {
     static_assert(Capacity >= 16,
                   "buffer must hold at least the max automatic batch");
 
@@ -179,21 +188,18 @@ std::size_t SeqRing<T>::pop_batch(OutputIt out)
     uint64_t avail = tail - head;
     if (avail == 0) return 0;                       // empty
 
-    // simple conditionals for picking the space in the queue
-    std::size_t k;
-    if      (avail <= 4)  k = 1;
-    else if (avail <= 16) k = 4;
-    else if (avail <= 64) k = 8;
-    else                  k = 16;
+    std::size_t k = avail >> divshift;
+    k = k < 1 ? 1 : k;
+    k = k > 16 ? 16 : k;
 
-    /* (Capacity check is compile‑time via static_assert) */
     if (!head_.compare_exchange_strong(
             head, head + k,
             std::memory_order_acq_rel,
             std::memory_order_relaxed))
-        return 0;                                   // lost race → retry later
+        return 0;                                   
+        // lost race → retry later
 
-    /* ---------- 3. move k items locally ---------- */
+    // 
     for (std::size_t i = 0; i < k; ++i) {
         Cell& cell = buffer_[(head + i) & mask_];
         while (cell.seq.load(std::memory_order_acquire) != head + i + 1)

@@ -45,6 +45,8 @@ public:
     template<std::size_t Capacity, typename OutputIt>
     std::size_t pop_batch(OutputIt out);
 
+    void setWorkerCount(unsigned workers);
+
     ~SeqRing() override;
 
 private:
@@ -64,6 +66,7 @@ private:
     const std::size_t      capacity_;   // power of two
     const std::size_t      mask_;       // capacity_‑1
     std::vector<Cell>      buffer_;
+    std::size_t divshift;
 
     alignas(64) std::atomic<uint64_t> head_{0};   // written by consumers
     alignas(64) std::atomic<uint64_t> tail_{0};   // written by producer

@@ -16,6 +16,7 @@ void Scheduler::start() {
     for (size_t i = 0; i < thread_count; ++i) {
         workers.emplace_back(&Scheduler::run, this);
     }
+    event_queue.setWorkerCount(thread_count);
     #ifdef TELEMETRY_ENABLED
     std::cout << "Scheduler started with " << thread_count << " threads.\n";
     #endif
@@ -53,6 +54,7 @@ void Scheduler::run() {
     //#endif
     constexpr std::size_t BATCH_CAP = 16;
     std::array<Event, 16> buf;
+    size_t thread_cnt = workers.size();
     while (running) {
         std::size_t got = event_queue.pop_batch<BATCH_CAP>(buf.begin());
         if (got == 0) {
