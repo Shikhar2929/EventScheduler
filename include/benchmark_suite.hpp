@@ -76,14 +76,13 @@ public:
     }
 
     static void SchedulerHash(std::vector<long long>& results) {
-        std::atomic<size_t> completed = 0;
         globalSum.store(0);
         InitScheduler();
         {
-            ScopeTimer t("Scheduler Hash Benchmark", &results);
+            ScopeTimer t("Scheduler Hash Benchmark With Alternate Wait For Completion", &results);
 
             for (size_t i = 0; i < NUM_CHUNKS; ++i) {
-                scheduler.scheduleEvent(Event(i + 1, [i, &completed]() {
+                scheduler.scheduleEvent(Event(i + 1, [i]() {
                     size_t localSum = 0;
                     size_t base = i * CHUNK_SIZE;
                     for (size_t j = 0; j < CHUNK_SIZE; ++j) {
@@ -92,13 +91,10 @@ public:
                         localSum ^= (localSum << 3);
                     }
                     globalSum.fetch_add(localSum % MOD, std::memory_order_relaxed);
-                    completed.fetch_add(1, std::memory_order_relaxed);
                 }));
             }
-
-            while (completed.load(std::memory_order_relaxed) < NUM_CHUNKS) {
-                std::this_thread::yield();
-            }
+            scheduler.markDone();
+            scheduler.waitUntilFinished();
             std::cout << "Global Sum: " << globalSum << std::endl;
         }
     }
@@ -142,23 +138,19 @@ public:
 
     static void EventSchedulerBenchmark(std::vector<long long>& results) {
         globalSum.store(0);
-        std::atomic<size_t> completed = 0;
         InitScheduler();
         {
             ScopeTimer t("Event Scheduler Benchmark", &results);
 
             for (size_t i = 1; i <= NUM_EVENTS; ++i) {
-                scheduler.scheduleEvent(Event(i, [&completed]() {
+                scheduler.scheduleEvent(Event(i, [&]() {
                     volatile size_t x = 0;
                     for (int j = 0; j < 100; ++j) x += j * j;
                     globalSum.fetch_add(x);
-                    completed.fetch_add(1, std::memory_order_relaxed);
                 }));
             }
-
-            while (completed.load(std::memory_order_relaxed) < NUM_EVENTS) {
-                std::this_thread::yield();
-            }
+            scheduler.markDone();
+            scheduler.waitUntilFinished();
         }
         std::cout << "Global Sum: " << globalSum << std::endl;
     }

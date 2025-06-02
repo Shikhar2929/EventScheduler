@@ -17,12 +17,17 @@ class Scheduler {
         void scheduleEvent(Event event);
         void start();
         void stop();
+        void markDone();
+        void waitUntilFinished();
 
     private:
         void run();
         void executeTask(Event& task);
 
         std::atomic<bool> running;
+        std::atomic<bool> doneSubmitting;
+        std::atomic<size_t> tasksSubmitted;
+        std::atomic<size_t> tasksCompleted;
         SeqRing<Event> event_queue;
         std::vector<std::thread> workers;
 
