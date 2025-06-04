@@ -12,7 +12,6 @@ void Scheduler::start() {
 
     size_t thread_count = std::thread::hardware_concurrency();
     if (thread_count == 0) thread_count = 4;
-
     for (size_t i = 0; i < thread_count; ++i) {
         workers.emplace_back(&Scheduler::run, this);
     }
@@ -54,7 +53,6 @@ void Scheduler::run() {
     //#endif
     constexpr std::size_t BATCH_CAP = 16;
     std::array<Event, 16> buf;
-    size_t thread_cnt = workers.size();
     while (running) {
         std::size_t got = event_queue.pop_batch<BATCH_CAP>(buf.begin());
         if (got == 0) {
@@ -62,7 +60,7 @@ void Scheduler::run() {
             continue;
         }
         for (std::size_t i = 0; i < got; ++i) {
-            executeTask(buf[i]);
+            executeEvent(buf[i]);
         }
         tasksCompleted.fetch_add(got, std::memory_order_relaxed);
     }
@@ -75,9 +73,77 @@ void Scheduler::waitUntilFinished() {
     }
 }
 
-void Scheduler::executeTask(Event& task) {
+void Scheduler::executeEvent(Event& event) {
     #ifdef TELEMETRY_ENABLED
         ScopeTimer t("Event " + std::to_string(task.getId()));
     #endif
-    task.execute();
+    event.execute();
+    notifyFinished(event.getId());
+}
+
+void Scheduler::addDependency(uint64_t source_id, uint64_t target_id) {
+    if (source_id == target_id) {
+        // self dependency check
+        return;
+    }
+
+    // Use ascending order locking to prevent any deadlocks 
+    uint64_t first  = std::min(source_id, target_id);
+    uint64_t second = std::max(source_id, target_id);
+
+    // Acquire the locks (in ID order)
+    std::lock_guard<std::mutex> lk1(taskLocks[first]);
+    std::lock_guard<std::mutex> lk2(taskLocks[second]);
+
+    // Record that “from_task_id” is waiting on “target_task_id”
+    subscribers[target_id].push_back(source_id);
+    dependencyCount[source_id] += 1;
+}
+
+void Scheduler::notifyFinished(uint64_t finished_id) {
+    std::vector<uint64_t> notifyList;
+    {
+        std::lock_guard<std::mutex> lk(taskLocks[finished_id]);
+        notifyList.swap(subscribers[finished_id]);
+    }
+
+    for (uint64_t sub : notifyList) {
+        bool enqueue = false;
+        {
+            std::lock_guard<std::mutex> lk(taskLocks[sub]);
+            assert(dependencyCount[sub] > 0 && "subscribe without entry?");
+            dependencyCount[sub] -= 1;
+            if (dependencyCount[sub] == 0) {
+                // All of sub_id’s declared dependencies are now satisfied
+                dependencyCount.erase(sub);    // clean up
+                enqueue = true;
+            }
+        }
+
+        if (enqueue) {
+            std::function<void(DependencyContext)> fn;
+            {
+                std::lock_guard<std::mutex> lk(taskLocks[sub]);
+                fn = functionCalls[sub];
+            }
+            Event wrapped(
+                sub,
+                [this, sub, fn]() mutable {
+                    DependencyContext context{this, sub};
+                    fn(context);
+                },
+                ""
+            );
+            tasksSubmitted.fetch_add(1, std::memory_order_relaxed);
+            event_queue.push(std::move(wrapped));
+        }
+    }
+}
+
+DependencyContext::DependencyContext(Scheduler* sched, uint64_t id) noexcept
+    : scheduler_(sched), current_task_id_(id)
+{}
+
+void DependencyContext::addDependency(uint64_t target_task_id) const {
+    scheduler_->addDependency(current_task_id_, target_task_id);
 }

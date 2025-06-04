@@ -34,9 +34,7 @@ class Event {
         template<typename Fn>   
         Event(uint64_t id, Fn &&fn, const std::string& name = "")
             : event_id(id), event_name(name) {
-            static_assert(sizeof(Fn) <= sizeof(storage), "Callable too large for inline storage");
-            static_assert(std::is_trivially_copyable_v<Fn>, "Callable must be trivially copyable");
-            
+            static_assert(sizeof(Fn) <= sizeof(storage), "Callable too large for inline storage");            
             new (&storage) Fn(std::forward<Fn>(fn));
     
             invoke = [](void* ptr) {

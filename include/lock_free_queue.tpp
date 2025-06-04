@@ -167,6 +167,7 @@ inline std::optional<T> SeqRing<T>::pop() {
     return consume();
 }
 
+//Happens once, upon the scheduler initialization
 template<typename T>
 void SeqRing<T>::setWorkerCount(unsigned workers) {
     divshift = nextPow2(workers);
