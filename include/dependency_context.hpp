@@ -8,8 +8,6 @@ class Scheduler;
 class DependencyContext {
 public:
     void addDependency(uint64_t target_task_id) const;
-
-    /// If the user ever needs to inspect their own ID:
     uint64_t getCurrentId() const {
         return current_task_id_;
     }

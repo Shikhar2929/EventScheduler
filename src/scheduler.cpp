@@ -81,69 +81,46 @@ void Scheduler::executeEvent(Event& event) {
     notifyFinished(event.getId());
 }
 
-void Scheduler::addDependency(uint64_t source_id, uint64_t target_id) {
-    if (source_id == target_id) {
-        // self dependency check
-        return;
-    }
-
-    // Use ascending order locking to prevent any deadlocks 
-    uint64_t first  = std::min(source_id, target_id);
-    uint64_t second = std::max(source_id, target_id);
-
-    // Acquire the locks (in ID order)
-    std::lock_guard<std::mutex> lk1(taskLocks[first]);
-    std::lock_guard<std::mutex> lk2(taskLocks[second]);
-
-    // Record that “from_task_id” is waiting on “target_task_id”
-    subscribers[target_id].push_back(source_id);
-    dependencyCount[source_id] += 1;
-}
-
-void Scheduler::notifyFinished(uint64_t finished_id) {
-    std::vector<uint64_t> notifyList;
+void Scheduler::notifyFinished(uint64_t id) {
+    std::vector<uint64_t> fanout;
     {
-        std::lock_guard<std::mutex> lk(taskLocks[finished_id]);
-        notifyList.swap(subscribers[finished_id]);
+        std::mutex* m = taskLocks.find(id);
+        std::lock_guard lg(*m);
+        fanout.swap(*subscribers.find(id));
     }
 
-    for (uint64_t sub : notifyList) {
-        bool enqueue = false;
+    for (uint64_t child : fanout) {
+        bool ready = false;
+
         {
-            std::lock_guard<std::mutex> lk(taskLocks[sub]);
-            assert(dependencyCount[sub] > 0 && "subscribe without entry?");
-            dependencyCount[sub] -= 1;
-            if (dependencyCount[sub] == 0) {
-                // All of sub_id’s declared dependencies are now satisfied
-                dependencyCount.erase(sub);    // clean up
-                enqueue = true;
-            }
+            std::mutex* m = taskLocks.find(child);
+            std::lock_guard lg(*m);
+            auto cnt = dependencyCount.find(child);
+            if (--(*cnt) == 0) ready = true;
         }
 
-        if (enqueue) {
-            std::function<void(DependencyContext)> fn;
-            {
-                std::lock_guard<std::mutex> lk(taskLocks[sub]);
-                fn = functionCalls[sub];
-            }
-            Event wrapped(
-                sub,
-                [this, sub]() mutable {
-                    DependencyContext ctx{this, sub};
-                    functionCalls[sub](ctx);
-                },
-                ""
-            );
+        if (ready) {
+            Event ev{child,
+                [this, child]() { (*functionCalls.find(child))(); }};
             tasksSubmitted.fetch_add(1, std::memory_order_relaxed);
-            event_queue.push(std::move(wrapped));
+            event_queue.push(std::move(ev));
         }
     }
+
 }
 
-DependencyContext::DependencyContext(Scheduler* sched, uint64_t id) noexcept
-    : scheduler_(sched), current_task_id_(id)
-{}
-
-void DependencyContext::addDependency(uint64_t target_task_id) const {
-    scheduler_->addDependency(current_task_id_, target_task_id);
+void Scheduler::ensureTaskRow(uint64_t id)
+{
+    taskLocks     .try_emplace(id);
+    subscribers   .try_emplace(id);
+    dependencyCount.try_emplace(id, std::size_t{0});
+    functionCalls .try_emplace(id);
 }
+
+// DependencyContext::DependencyContext(Scheduler* sched, uint64_t id) noexcept
+//     : scheduler_(sched), current_task_id_(id)
+// {}
+
+// void DependencyContext::addDependency(uint64_t target_task_id) const {
+//     scheduler_->addDependency(current_task_id_, target_task_id);
+// }

@@ -238,58 +238,40 @@ public:
     }
     static void DependencyGraphDemo() {
         InitScheduler();
-    
-        // A (ID=1)
-        scheduler.scheduleEvent(1, [](DependencyContext ctx) {
-            {
-            std::lock_guard<std::mutex> lk(coutMutex);
-            std::cout << "[A] running (id=1)\n";
-            }
-        });
-    
-        // B (ID=2) depends on A
-        scheduler.scheduleEvent(2, [](DependencyContext ctx) {
-            static bool first = true;
-            if (first) {
-                first = false;
-                ctx.addDependency(1);
-                return;
-            }
-            {
+        scheduler.scheduleEvent(
+            1,
+            [] {
+                std::lock_guard<std::mutex> lk(coutMutex);
+                std::cout << "[A] running (id=1)\n";
+            });
+
+        // B (ID = 2) ─ after A
+        scheduler.scheduleEvent(
+            2,
+            [] {
                 std::lock_guard<std::mutex> lk(coutMutex);
                 std::cout << "[B] running (id=2) after A\n";
-            }
-        });
-    
-        // D (ID=4) depends on A
-        scheduler.scheduleEvent(4, [](DependencyContext ctx) {
-            static bool first = true;
-            if (first) {
-                first = false;
-                ctx.addDependency(1);
-                return;
-            }
-            {
+            },
+            {1});
+
+        // D (ID = 4) ─ after A
+        scheduler.scheduleEvent(
+            4,
+            [] {
                 std::lock_guard<std::mutex> lk(coutMutex);
                 std::cout << "[D] running (id=4) after A\n";
-            }
-        });
-    
-        // C (ID=3) depends on B and D
-        scheduler.scheduleEvent(3, [](DependencyContext ctx) {
-            static bool first = true;
-            if (first) {
-                first = false;
-                ctx.addDependency(2);
-                ctx.addDependency(4);
-                return;
-            }
-            {
+            },
+            {1});
+
+        // C (ID = 3) ─ after B and D
+        scheduler.scheduleEvent(
+            3,
+            [] {
                 std::lock_guard<std::mutex> lk(coutMutex);
                 std::cout << "[C] running (id=3) after B and D\n";
-            }
-        });
-    
+            },
+            {2, 4});
+
         scheduler.markDone();
         scheduler.waitUntilFinished();
     }
