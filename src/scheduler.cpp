@@ -128,9 +128,9 @@ void Scheduler::notifyFinished(uint64_t finished_id) {
             }
             Event wrapped(
                 sub,
-                [this, sub, fn]() mutable {
-                    DependencyContext context{this, sub};
-                    fn(context);
+                [this, sub]() mutable {
+                    DependencyContext ctx{this, sub};
+                    functionCalls[sub](ctx);
                 },
                 ""
             );

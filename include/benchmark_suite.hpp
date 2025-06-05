@@ -12,6 +12,7 @@
 #include <numeric>
 #include <algorithm>
 #include <random>
+static std::mutex coutMutex;
 
 class BenchmarkSuite {
 public:
@@ -26,6 +27,7 @@ private:
     static inline std::atomic<size_t> globalSum = 0;
     static inline Scheduler scheduler;
     static inline bool schedulerStarted = false;
+
 
 public:
     static void InitScheduler() {
@@ -220,35 +222,7 @@ public:
             scheduler.markDone();
             scheduler.waitUntilFinished();
         }
-        /*
-        std::vector<std::vector<int>> C_ref(N, std::vector<int>(N, 0));
-        MultiplyMatrices(A, B, C_ref);
-    
-        bool valid = true;
-        for (size_t i = 0; i < N && valid; ++i) {
-            for (size_t j = 0; j < N; ++j) {
-                if (C[i][j] != C_ref[i][j]) {
-                    std::cerr << "Verification failed at (" << i << ", " << j << "): "
-                              << C[i][j] << " != " << C_ref[i][j] << std::endl;
-                    valid = false;
-                    break;
-                }
-            }
-        }
-        if (valid) {
-            std::cout << "Matrix verification passed." << std::endl;
-        }
-    
-        int checksum = 0;
-        for (size_t i = 0; i < N; ++i)
-            for (size_t j = 0; j < N; ++j)
-                checksum += C[i][j];
-    
-        std::cout << "Matrix Checksum: " << checksum << std::endl;
-        */
-    }    
-
-
+    }   
 
     static void Summarize(const std::string& label, const std::vector<long long>& data) {
         if (data.empty()) return;
@@ -262,4 +236,63 @@ public:
                   << "  Min: " << min_v << " µs\n"
                   << "  Max: " << max_v << " µs\n";
     }
+    static void DependencyGraphDemo() {
+        InitScheduler();
+    
+        // A (ID=1)
+        scheduler.scheduleEvent(1, [](DependencyContext ctx) {
+            {
+            std::lock_guard<std::mutex> lk(coutMutex);
+            std::cout << "[A] running (id=1)\n";
+            }
+        });
+    
+        // B (ID=2) depends on A
+        scheduler.scheduleEvent(2, [](DependencyContext ctx) {
+            static bool first = true;
+            if (first) {
+                first = false;
+                ctx.addDependency(1);
+                return;
+            }
+            {
+                std::lock_guard<std::mutex> lk(coutMutex);
+                std::cout << "[B] running (id=2) after A\n";
+            }
+        });
+    
+        // D (ID=4) depends on A
+        scheduler.scheduleEvent(4, [](DependencyContext ctx) {
+            static bool first = true;
+            if (first) {
+                first = false;
+                ctx.addDependency(1);
+                return;
+            }
+            {
+                std::lock_guard<std::mutex> lk(coutMutex);
+                std::cout << "[D] running (id=4) after A\n";
+            }
+        });
+    
+        // C (ID=3) depends on B and D
+        scheduler.scheduleEvent(3, [](DependencyContext ctx) {
+            static bool first = true;
+            if (first) {
+                first = false;
+                ctx.addDependency(2);
+                ctx.addDependency(4);
+                return;
+            }
+            {
+                std::lock_guard<std::mutex> lk(coutMutex);
+                std::cout << "[C] running (id=3) after B and D\n";
+            }
+        });
+    
+        scheduler.markDone();
+        scheduler.waitUntilFinished();
+    }
+    
+
 };
