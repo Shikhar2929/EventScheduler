@@ -11,6 +11,7 @@ void Scheduler::start() {
     doneSubmitting = false;
 
     size_t thread_count = std::thread::hardware_concurrency();
+    //thread_count = 4;
     if (thread_count == 0) thread_count = 4;
     for (size_t i = 0; i < thread_count; ++i) {
         workers.emplace_back(&Scheduler::run, this);
@@ -39,6 +40,7 @@ void Scheduler::stop() {
 }
 
 void Scheduler::scheduleEvent(Event event) {
+    ensureTaskRow(event.getId());                       
     tasksSubmitted.fetch_add(1, std::memory_order_relaxed);
     event_queue.push(std::move(event));
 }
@@ -46,6 +48,7 @@ void Scheduler::scheduleEvent(Event event) {
 void Scheduler::markDone() {
     doneSubmitting.store(true);
 }
+
 
 void Scheduler::run() {
     //#ifdef TELEMETRY_ENABLED
@@ -64,20 +67,45 @@ void Scheduler::run() {
         }
         tasksCompleted.fetch_add(got, std::memory_order_relaxed);
     }
-}
+} 
+/**
+void Scheduler::run() {
+    //#ifdef TELEMETRY_ENABLED
+    //std::cout << "Worker Started With " << std::this_thread::get_id() << std::endl;
+    //#endif
+    while (running) {
+        auto task_opt = event_queue.pop();
+        if (task_opt.has_value()) {
+            executeEvent(task_opt.value());  
+            tasksCompleted.fetch_add(1, std::memory_order_relaxed);
+        }
+        else 
+            std::this_thread::yield();
+    }
+}*/
 
 void Scheduler::waitUntilFinished() {
-    while (tasksCompleted.load(std::memory_order_relaxed) <
-           tasksSubmitted.load(std::memory_order_relaxed) && running) {
+    std::size_t completed  = tasksCompleted.load(std::memory_order_relaxed);
+    std::size_t submitted  = tasksSubmitted.load(std::memory_order_relaxed);
+    
+    while (completed < submitted && running) {
+        #ifdef TELEMETRY_ENABLED
+        // std::cout << "TRYING TO FINISH" << std::endl;
+        // std::cout << "Completed: " << completed << std::endl;
+        // std::cout << "Submitted: " << submitted << std::endl;
+        #endif 
         std::this_thread::sleep_for(std::chrono::microseconds(5));
+        completed  = tasksCompleted.load(std::memory_order_relaxed);
+        submitted  = tasksSubmitted.load(std::memory_order_relaxed);    
     }
 }
 
 void Scheduler::executeEvent(Event& event) {
     #ifdef TELEMETRY_ENABLED
-        ScopeTimer t("Event " + std::to_string(task.getId()));
+    //    ScopeTimer t("Event " + std::to_string(event.getId()));
     #endif
     event.execute();
+    //tasksCompleted.fetch_add(1, std::memory_order_relaxed); // TEMP FIX TO TEST IF NOTIFY IS THE ISSUE
     notifyFinished(event.getId());
 }
 

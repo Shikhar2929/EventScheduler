@@ -122,7 +122,10 @@ inline void SeqRing<T>::produce(U&& value) {
             return;
         }
 
-        if (diff < 0) {                           /* full – backoff */
+        else if (diff < 0) {          
+            #ifdef TELEMETRY_ENABLED                 
+            std::cout << "DIFF < 0" << std::endl;
+            #endif 
             std::this_thread::yield();
         } /* else: consumer still reading – retry */
     }
@@ -176,7 +179,7 @@ void SeqRing<T>::setWorkerCount(unsigned workers) {
 }
 
 
-
+/*
 template<typename T>
 template<std::size_t Capacity, typename OutputIt>
 std::size_t SeqRing<T>::pop_batch(OutputIt out) {
@@ -213,4 +216,52 @@ std::size_t SeqRing<T>::pop_batch(OutputIt out) {
                        std::memory_order_release);
     }
     return k;
+}*/
+
+template<typename T>
+template<std::size_t Capacity, typename OutputIt>
+std::size_t SeqRing<T>::pop_batch(OutputIt out) {
+    static_assert(Capacity >= 16,
+                  "buffer must hold at least the max automatic batch");
+
+    uint64_t head = head_.load(std::memory_order_acquire);
+    uint64_t tail = tail_.load(std::memory_order_acquire);
+    uint64_t avail = tail - head;
+    if (avail == 0) return 0;
+
+    std::size_t k = avail >> divshift;
+    k = std::min<std::size_t>(16, std::max<std::size_t>(1, k));
+
+    // Try to peek ahead and count how many items are actually ready
+    std::size_t ready = 0;
+    for (; ready < k; ++ready) {
+        Cell& cell = buffer_[(head + ready) & mask_];
+        uint64_t expected_seq = head + ready + 1;
+
+        if (cell.seq.load(std::memory_order_acquire) != expected_seq)
+            break; // stop at first not-ready
+    }
+
+    if (ready == 0) return 0; // nothing ready, give up safely
+
+    // Try to claim the batch
+    if (!head_.compare_exchange_strong(
+            head, head + ready,
+            std::memory_order_acq_rel,
+            std::memory_order_relaxed)) {
+        return 0; // contention — just give up
+    }
+
+    // Actually pop the ready items
+    for (std::size_t i = 0; i < ready; ++i) {
+        Cell& cell = buffer_[(head + i) & mask_];
+
+        T* ptr = std::launder(reinterpret_cast<T*>(&cell.storage));
+        *out++ = std::move(*ptr);
+        ptr->~T();
+
+        cell.seq.store(head + i + capacity_, std::memory_order_release);
+    }
+
+    return ready;
 }

@@ -5,6 +5,7 @@
 #include <optional>
 #include <type_traits>
 #include <cstddef>
+#include <mutex>
 
 template<class Key, class T,
          class Hash      = std::hash<Key>,
