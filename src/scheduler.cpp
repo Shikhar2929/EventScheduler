@@ -68,8 +68,7 @@ void Scheduler::run() {
         tasksCompleted.fetch_add(got, std::memory_order_relaxed);
     }
 } 
-/**
-void Scheduler::run() {
+void Scheduler::alternate_run() {
     //#ifdef TELEMETRY_ENABLED
     //std::cout << "Worker Started With " << std::this_thread::get_id() << std::endl;
     //#endif
@@ -82,7 +81,7 @@ void Scheduler::run() {
         else 
             std::this_thread::yield();
     }
-}*/
+}
 
 void Scheduler::waitUntilFinished() {
     std::size_t completed  = tasksCompleted.load(std::memory_order_relaxed);

@@ -239,10 +239,10 @@ std::size_t SeqRing<T>::pop_batch(OutputIt out) {
         uint64_t expected_seq = head + ready + 1;
 
         if (cell.seq.load(std::memory_order_acquire) != expected_seq)
-            break; // stop at first not-ready
+            break;
     }
 
-    if (ready == 0) return 0; // nothing ready, give up safely
+    if (ready == 0) return 0;
 
     // Try to claim the batch
     if (!head_.compare_exchange_strong(

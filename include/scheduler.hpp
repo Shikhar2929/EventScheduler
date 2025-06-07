@@ -3,7 +3,7 @@
 
 #include "event.hpp"
 #include "lock_free_queue.hpp"
-//#include "dependency_context.hpp"
+#include <span>
 #include "concurrent_hash_map.hpp"
 
 #include <queue>
@@ -31,10 +31,11 @@ class Scheduler {
 
         template<typename Fn>
         void scheduleEvent(uint64_t id, 
-            Fn&& user_fn, std::initializer_list<uint64_t> deps = {});
+            Fn&& user_fn, std::span<const uint64_t> deps);
 
     private:
         void run();
+        void alternate_run();
         void executeEvent(Event& task);
         void notifyFinished(uint64_t finished_id);        
         void ensureTaskRow(uint64_t id);
@@ -52,7 +53,7 @@ class Scheduler {
         ConcurrentHashMap<uint64_t, std::function<void()>> functionCalls;
     };
 template<typename Fn>
-void Scheduler::scheduleEvent(uint64_t id, Fn&& user_fn, std::initializer_list<uint64_t> deps) {
+void Scheduler::scheduleEvent(uint64_t id, Fn&& user_fn, std::span<const uint64_t> deps) {
     ensureTaskRow(id);
     {
         std::mutex* mtx = taskLocks.find(id);

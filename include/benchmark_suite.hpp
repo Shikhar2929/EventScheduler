@@ -243,7 +243,7 @@ public:
             [] {
                 std::lock_guard<std::mutex> lk(coutMutex);
                 std::cout << "[A] running (id=1)\n";
-            });
+            }, {});
 
         // B (ID = 2) ─ after A
         scheduler.scheduleEvent(
@@ -252,7 +252,7 @@ public:
                 std::lock_guard<std::mutex> lk(coutMutex);
                 std::cout << "[B] running (id=2) after A\n";
             },
-            {1});
+            std::array<uint64_t, 1>{1});
 
         // D (ID = 4) ─ after A
         scheduler.scheduleEvent(
@@ -261,7 +261,7 @@ public:
                 std::lock_guard<std::mutex> lk(coutMutex);
                 std::cout << "[D] running (id=4) after A\n";
             },
-            {1});
+            std::array<uint64_t, 1>{1});
 
         // C (ID = 3) ─ after B and D
         scheduler.scheduleEvent(
@@ -270,11 +270,65 @@ public:
                 std::lock_guard<std::mutex> lk(coutMutex);
                 std::cout << "[C] running (id=3) after B and D\n";
             },
-            {2, 4});
+            std::array<uint64_t, 2>{2, 4});
 
         scheduler.markDone();
         scheduler.waitUntilFinished();
     }
+    static void DeepDependencyBenchmark(std::vector<long long>& results) {
+        constexpr size_t LEVELS = 100;
+        constexpr size_t EVENTS_PER_LEVEL = 50;
+        size_t current_id = 1;
+    
+        InitScheduler();
+    
+        {
+            ScopeTimer t("Deep Dependency Benchmark", &results);
+            std::vector<size_t> previous_level_ids;
+    
+            // First level — no dependencies
+            std::vector<size_t> current_level_ids;
+            for (size_t i = 0; i < EVENTS_PER_LEVEL; ++i) {
+                size_t id = current_id++;
+                current_level_ids.push_back(id);
+    
+                scheduler.scheduleEvent(
+                    id,
+                    [id] {
+                        volatile size_t x = id;
+                        for (int j = 0; j < 100; ++j) x ^= (x << 1);
+                    },
+                    {}
+                );
+            }
+    
+            // Remaining levels
+            for (size_t level = 1; level < LEVELS; ++level) {
+                previous_level_ids = std::move(current_level_ids);
+                current_level_ids.clear();
+    
+                // Convert to uint64_t list
+                std::vector<uint64_t> deps(previous_level_ids.begin(), previous_level_ids.end());    
+                for (size_t i = 0; i < EVENTS_PER_LEVEL; ++i) {
+                    size_t id = current_id++;
+                    current_level_ids.push_back(id);
+    
+                    scheduler.scheduleEvent(
+                        id,
+                        [id] {
+                            volatile size_t x = id;
+                            for (int j = 0; j < 100; ++j) x ^= (x << 1);
+                        },
+                        {deps.begin(), deps.end()}  // now valid initializer_list<uint64_t>
+                    );
+                }
+            }
+    
+            scheduler.markDone();
+            scheduler.waitUntilFinished();
+        }
+    }
+    
     
 
 };
