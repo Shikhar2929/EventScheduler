@@ -55,7 +55,7 @@ void Scheduler::run() {
     //std::cout << "Worker Started With " << std::this_thread::get_id() << std::endl;
     //#endif
     constexpr std::size_t BATCH_CAP = 16;
-    std::array<Event, 16> buf;
+    std::array<Event, BATCH_CAP> buf;
     while (running) {
         std::size_t got = event_queue.pop_batch<BATCH_CAP>(buf.begin());
         if (got == 0) {

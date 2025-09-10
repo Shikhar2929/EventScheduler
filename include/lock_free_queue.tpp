@@ -178,46 +178,6 @@ void SeqRing<T>::setWorkerCount(unsigned workers) {
     divshift = divshift > 16 ? 16 : divshift;
 }
 
-
-/*
-template<typename T>
-template<std::size_t Capacity, typename OutputIt>
-std::size_t SeqRing<T>::pop_batch(OutputIt out) {
-    static_assert(Capacity >= 16,
-                  "buffer must hold at least the max automatic batch");
-
-    //head, tail, for getting the available space in the queue
-    uint64_t head = head_.load(std::memory_order_relaxed);
-    uint64_t tail = tail_.load(std::memory_order_acquire);
-    uint64_t avail = tail - head;
-    if (avail == 0) return 0;                       // empty
-
-    std::size_t k = avail >> divshift;
-    k = k < 1 ? 1 : k;
-    k = k > 16 ? 16 : k;
-
-    if (!head_.compare_exchange_strong(
-            head, head + k,
-            std::memory_order_acq_rel,
-            std::memory_order_relaxed))
-        return 0;                                   
-        // lost race → retry later
-
-    // 
-    for (std::size_t i = 0; i < k; ++i) {
-        Cell& cell = buffer_[(head + i) & mask_];
-        while (cell.seq.load(std::memory_order_acquire) != head + i + 1)
-            std::this_thread::yield();
-
-        T* ptr = std::launder(reinterpret_cast<T*>(&cell.storage));
-        *out++ = std::move(*ptr);
-        ptr->~T();
-        cell.seq.store(head + i + capacity_,
-                       std::memory_order_release);
-    }
-    return k;
-}*/
-
 template<typename T>
 template<std::size_t Capacity, typename OutputIt>
 std::size_t SeqRing<T>::pop_batch(OutputIt out) {
