@@ -328,7 +328,33 @@ public:
             scheduler.waitUntilFinished();
         }
     }
-    
-    
+
+    static void VerifyAll(int hashTrials = 1, int matrixTrials = 1, int dependencyTrials = 1) {
+        std::vector<long long> results;
+        for (int i = 0; i < hashTrials; i++) {
+            BenchmarkHash(results);
+        }
+        Summarize("Benchmark Hash", results);
+        results.clear();
+        for (int i = 0; i < hashTrials; i++) {
+            SchedulerHash(results);
+        }
+        Summarize("Scheduler Hash", results);
+        results.clear();
+        for (int i = 0; i < matrixTrials; i++) {
+            MatrixMultiplicationBenchmark(100, results);
+        }
+        Summarize("Matrix Multiplication Scheduler Benchmark", results);
+        results.clear();
+        for (int i = 0; i < matrixTrials; i++) {
+            MatrixMultiplicationSchedulerBenchmark(100, results);
+        }
+        Summarize("Matrix Multiplication Scheduler Benchmark", results);
+        results.clear();
+        DependencyGraphDemo();
+        for (int i = 0; i < dependencyTrials; i++) {
+            DeepDependencyBenchmark(results);
+        }
+    }
 
 };
