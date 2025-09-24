@@ -1,0 +1,28 @@
+Running...
+98280
+[Profiler] Hash Benchmark Version: 1262 µs
+[Stats] Benchmark Hash
+  Avg: 1262 µs
+  Min: 1262 µs
+  Max: 1262 µs
+Global Sum: 98280
+[Profiler] Scheduler Hash Benchmark With Alternate Wait For Completion: 143 µs
+[Stats] Scheduler Hash
+  Avg: 143 µs
+  Min: 143 µs
+  Max: 143 µs
+[Profiler] Matrix Multiplication Benchmark: 316 µs
+[Stats] Matrix Multiplication Scheduler Benchmark
+  Avg: 316 µs
+  Min: 316 µs
+  Max: 316 µs
+[Profiler] Matrix Multiplication Scheduler Benchmark: 92 µs
+[Stats] Matrix Multiplication Scheduler Benchmark
+  Avg: 92 µs
+  Min: 92 µs
+  Max: 92 µs
+[A] running (id=1)
+[B] running (id=2) after A
+[D] running (id=4) after A
+[C] running (id=3) after B and D
+[Profiler] Deep Dependency Benchmark: 5379 µs

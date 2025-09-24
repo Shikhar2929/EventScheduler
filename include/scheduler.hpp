@@ -3,8 +3,8 @@
 
 #include "event.hpp"
 #include "lock_free_queue.hpp"
+#include "lock_free_hash_map.hpp"
 #include <span>
-#include "concurrent_hash_map.hpp"
 
 #include <queue>
 #include <mutex>
@@ -47,10 +47,10 @@ class Scheduler {
         SeqRing<Event> event_queue;
         std::vector<std::thread> workers;
         
-        ConcurrentHashMap<uint64_t, std::mutex> taskLocks;
-        ConcurrentHashMap<uint64_t, std::vector<uint64_t>> subscribers;
-        ConcurrentHashMap<uint64_t, std::size_t> dependencyCount;
-        ConcurrentHashMap<uint64_t, std::function<void()>> functionCalls;
+        lf::LockFreeHashMap<uint64_t, std::mutex> taskLocks;
+        lf::LockFreeHashMap<uint64_t, std::vector<uint64_t>> subscribers;
+        lf::LockFreeHashMap<uint64_t, std::size_t> dependencyCount;
+        lf::LockFreeHashMap<uint64_t, std::function<void()>> functionCalls;
     };
 template<typename Fn>
 void Scheduler::scheduleEvent(uint64_t id, Fn&& user_fn, std::span<const uint64_t> deps) {
